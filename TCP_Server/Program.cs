@@ -160,10 +160,5 @@ namespace TCP_Server
 
             return result;
         }
-
-        static void helo()
-        {
-            Console.WriteLine("heloooo");
-        }
     }
 }
