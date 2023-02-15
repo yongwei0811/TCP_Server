@@ -38,15 +38,26 @@ namespace TCP_Server
 
             try
             {
-                while (true)
+                while (client.Connected)
                 {
+                    // to check if the client disconnect to the server
+                    if (client.Client.Poll(0, SelectMode.SelectRead))
+                    {
+                        byte[] buff = new byte[1];
+                        if (client.Client.Receive(buff, SocketFlags.Peek) == 0)
+                        {
+                            Console.WriteLine("Client disconnected.");
+                            break;
+                        }
+                    }
+
                     if (stream.DataAvailable)
                     {
                         // Read the request from the client.
                         byte[] buffer = new byte[1024];
                         int bytesRead = stream.Read(buffer, 0, buffer.Length);
                         string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
+                      
                         string res = getResponse(request);
 
                         // Write the response back to the client.
@@ -71,8 +82,10 @@ namespace TCP_Server
                             System.Threading.Thread.Sleep(1000);
                             sendSignal("on", 1234);
                         }
+                        
                     }
                 }
+
             }
             catch (Exception)
             {
@@ -146,6 +159,11 @@ namespace TCP_Server
             }
 
             return result;
+        }
+
+        static void helo()
+        {
+            Console.WriteLine("heloooo");
         }
     }
 }
