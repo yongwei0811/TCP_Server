@@ -16,12 +16,15 @@ namespace TCP_Server
         static List<string> boardList = new List<string>();
         static void Main(string[] args)
         {
-            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), 8080);
+            TcpListener server = new TcpListener(IPAddress.Parse("10.11.12.11"), 51236);
             server.Start();
 
             Console.WriteLine("Waiting for a client to connect...");
-            sendSignal("on", 1234);
-         
+
+            sendSignal("ON1", "10.11.12.24", 51236);
+            sendSignal("ON2", "10.11.12.24", 51236);
+            sendSignal("ON3", "10.11.12.24", 51236);
+
             while (true)
             {
                 TcpClient client = server.AcceptTcpClient();
@@ -57,18 +60,18 @@ namespace TCP_Server
                         byte[] buffer = new byte[1024];
                         int bytesRead = stream.Read(buffer, 0, buffer.Length);
                         string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                      
+
                         string res = getResponse(request);
 
                         // Write the response back to the client.
                         byte[] response = Encoding.ASCII.GetBytes(res);
                         stream.Write(response, 0, response.Length);
 
-                        if (res == "Ok")
+                        if (res == "good")
                         {
                             count++;
                             Console.WriteLine("Count value: " + count);
-                            sendSignal("Ok", int.Parse(getIP(request)));
+                            sendSignal("good", getIP(request), 51236);
                             boardList.Add(request);
                         }
 
@@ -77,12 +80,21 @@ namespace TCP_Server
 
                         if (count == 3)
                         {
-                            count = 0;
-                            boardList.Clear();
-                            System.Threading.Thread.Sleep(1000);
-                            sendSignal("on", 1234);
+                            // check if the board ready signal's sequence correct
+                            if(boardList[0] == "10.11.12.21 BOARDREADY" && boardList[1] == "10.11.12.22 BOARDREADY" && boardList[2] == "10.11.12.23 BOARDREADY")
+                            {
+                                count = 0;
+                                boardList.Clear();
+                                System.Threading.Thread.Sleep(1000);
+                                sendSignal("ON1", "10.11.12.24", 1234);
+                                sendSignal("ON2", "10.11.12.24", 1234);
+                                sendSignal("ON3", "10.11.12.24", 1234);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Incorrect sequence of board");
+                            }
                         }
-                        
                     }
                 }
 
@@ -97,30 +109,37 @@ namespace TCP_Server
             }
         }
 
-        static void sendSignal(string msg, int port)
+        static void sendSignal(string msg, string ip, int port)
         {
-            TcpClient client = new TcpClient("127.0.0.1", port);
-            NetworkStream stream = client.GetStream();
+            try
+            {
+                TcpClient client = new TcpClient(ip, port);
+                NetworkStream stream = client.GetStream();
 
-            byte[] buffer = Encoding.ASCII.GetBytes(msg);
-            stream.Write(buffer, 0, buffer.Length);
-            Console.WriteLine("The request ("+ msg + ") already sent to: " + port);
+                byte[] buffer = Encoding.ASCII.GetBytes(msg);
+                stream.Write(buffer, 0, buffer.Length);
+                Console.WriteLine("The request (" + msg + ") already sent to: " + port);
 
-            client.Close();
+                client.Close();
+            }
+            catch (Exception ex) {
+                Console.WriteLine("No connection could be made to the port " + port);
+                //Console.WriteLine(ex.ToString());
+            }
         }
 
         static string getResponse(string req)
         {
             string res = "";
 
-            if (req.Contains("BoardReady") && !boardList.Contains(req))
+            if (req.Contains("BOARDREADY") && !boardList.Contains(req))
             {
-                res = "Ok";
+                res = "good";
             }
             else if (boardList.Contains(req))
             {
                 res = "Same board signal";
-                createLogFile(req);
+                createLogFile(req + " is sent more than 1 signal at ");
             }
             else
             {
@@ -133,12 +152,12 @@ namespace TCP_Server
         static void createLogFile(string req)
         {
             string logFile = "log.txt";
-            string currentDirectory = Directory.GetCurrentDirectory();
+            //string currentDirectory = Directory.GetCurrentDirectory();
             //Console.WriteLine("The current directory is: " + currentDirectory);
             Console.WriteLine("A log file is created.");
 
-            string logMessage = req + " is sent more than 1 signal at " + DateTime.Now;
-          
+            string logMessage = req + DateTime.Now;
+
             if (!File.Exists(logFile))
             {
                 File.Create(logFile).Close();
@@ -150,12 +169,12 @@ namespace TCP_Server
         static string getIP(string req)
         {
             string result = "No IP Address Found";
-            string searchString = "BoardReady";
-            int startIndex = req.IndexOf(searchString) + searchString.Length;
+            string searchString = " BOARDREADY";
+            int index = req.IndexOf(searchString);
 
-            if (startIndex >= 0)
+            if (index >= 0)
             {
-               result = req.Substring(startIndex);
+                result = req.Substring(0, index);
             }
 
             return result;
