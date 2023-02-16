@@ -21,9 +21,9 @@ namespace TCP_Server
 
             Console.WriteLine("Waiting for a client to connect...");
 
+            sendSignal("ON0", "10.11.12.24", 51236);
             sendSignal("ON1", "10.11.12.24", 51236);
             sendSignal("ON2", "10.11.12.24", 51236);
-            sendSignal("ON3", "10.11.12.24", 51236);
 
             while (true)
             {
@@ -80,28 +80,23 @@ namespace TCP_Server
 
                         if (count == 3)
                         {
-                            // check if the board ready signal's sequence correct
-                            if(boardList[0] == "10.11.12.21 BOARDREADY" && boardList[1] == "10.11.12.22 BOARDREADY" && boardList[2] == "10.11.12.23 BOARDREADY")
-                            {
-                                count = 0;
-                                boardList.Clear();
-                                System.Threading.Thread.Sleep(1000);
-                                sendSignal("ON1", "10.11.12.24", 1234);
-                                sendSignal("ON2", "10.11.12.24", 1234);
-                                sendSignal("ON3", "10.11.12.24", 1234);
-                            }
-                            else
-                            {
-                                Console.WriteLine("Incorrect sequence of board");
-                            }
+                            Console.WriteLine("do 3333");
+                            count = 0;
+                            boardList.Clear();
+                            System.Threading.Thread.Sleep(1000);
+                            sendSignal("ON0", "10.11.12.24", 51236);
+                            sendSignal("ON1", "10.11.12.24", 51236);
+                            sendSignal("ON2", "10.11.12.24", 51236);
                         }
+                        Console.WriteLine("done 3333");
                     }
                 }
 
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.WriteLine("Client disconnected.");
+                Console.WriteLine("Error: ");
+                Console.WriteLine(ex.ToString());
             }
             finally
             {
@@ -111,21 +106,29 @@ namespace TCP_Server
 
         static void sendSignal(string msg, string ip, int port)
         {
-            try
+            int t = 0;
+            do
             {
-                TcpClient client = new TcpClient(ip, port);
-                NetworkStream stream = client.GetStream();
+                try
+                {
+                    TcpClient client = new TcpClient(ip, port);
+                    NetworkStream stream = client.GetStream();
 
-                byte[] buffer = Encoding.ASCII.GetBytes(msg);
-                stream.Write(buffer, 0, buffer.Length);
-                Console.WriteLine("The request (" + msg + ") already sent to: " + port);
+                    byte[] buffer = Encoding.ASCII.GetBytes(msg);
+                    stream.Write(buffer, 0, buffer.Length);
+                    Console.WriteLine("The request (" + msg + ") already sent to: " + ip);
 
-                client.Close();
-            }
-            catch (Exception ex) {
-                Console.WriteLine("No connection could be made to the port " + port);
-                //Console.WriteLine(ex.ToString());
-            }
+                    client.Close();
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    t++;
+                    Console.WriteLine("No connection could be made to " + ip);
+                    continue;
+                    Console.WriteLine(ex.ToString());
+                }
+            } while (t <= 4);
         }
 
         static string getResponse(string req)
