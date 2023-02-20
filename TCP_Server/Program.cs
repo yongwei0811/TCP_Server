@@ -36,71 +36,79 @@ namespace TCP_Server
 
         static void HandleClient(object obj)
         {
-            TcpClient client = (TcpClient)obj;
-            NetworkStream stream = client.GetStream();
-
             try
             {
-                while (client.Connected)
+                TcpClient client = (TcpClient)obj;
+                NetworkStream stream = client.GetStream();
+
+                try
                 {
-                    // to check if the client disconnect to the server
-                    if (client.Client.Poll(0, SelectMode.SelectRead))
+                    while (client.Connected)
                     {
-                        byte[] buff = new byte[1];
-                        if (client.Client.Receive(buff, SocketFlags.Peek) == 0)
+                        // to check if the client disconnect to the server
+                        if (client.Client.Poll(0, SelectMode.SelectRead))
                         {
-                            Console.WriteLine("Client disconnected.");
-                            break;
+                            byte[] buff = new byte[1];
+                            if (client.Client.Receive(buff, SocketFlags.Peek) == 0)
+                            {
+                                Console.WriteLine("Client disconnected.");
+                                break;
+                            }
+                        }
+
+                        if (stream.DataAvailable)
+                        {
+                            // Read the request from the client.
+                            byte[] buffer = new byte[1024];
+                            int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                            string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+
+                            string res = getResponse(request);
+
+                            // Write the response back to the client.
+                            byte[] response = Encoding.ASCII.GetBytes(res);
+                            stream.Write(response, 0, response.Length);
+
+                            if (res == "good")
+                            {
+                                sendSignal("good", getIP(request), 51236);
+                                count++;
+                                Console.WriteLine("Count value: " + count);
+                                boardList.Add(request);
+                            }
+
+                            Console.WriteLine("Received: " + request);
+                            Console.WriteLine("Sent: " + Encoding.ASCII.GetString(response) + " to " + getIP(request));
+
+                            if (count == 3)
+                            {
+                                System.Threading.Thread.Sleep(800);
+                                Console.WriteLine("do 3333");
+                                count = 0;
+                                boardList.Clear();
+                                System.Threading.Thread.Sleep(1000);
+                                sendSignal("ON0", "10.11.12.24", 51236);  
+                                sendSignal("ON1", "10.11.12.24", 51236);
+                                sendSignal("ON2", "10.11.12.24", 51236);
+                            }
+                            Console.WriteLine("done 3333");
                         }
                     }
 
-                    if (stream.DataAvailable)
-                    {
-                        // Read the request from the client.
-                        byte[] buffer = new byte[1024];
-                        int bytesRead = stream.Read(buffer, 0, buffer.Length);
-                        string request = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-
-                        string res = getResponse(request);
-
-                        // Write the response back to the client.
-                        byte[] response = Encoding.ASCII.GetBytes(res);
-                        stream.Write(response, 0, response.Length);
-
-                        if (res == "good")
-                        {
-                            count++;
-                            Console.WriteLine("Count value: " + count);
-                            sendSignal("good", getIP(request), 51236);
-                            boardList.Add(request);
-                        }
-
-                        Console.WriteLine("Received: " + request);
-                        Console.WriteLine("Sent: " + Encoding.ASCII.GetString(response));
-
-                        if (count == 3)
-                        {
-                            Console.WriteLine("do 3333");
-                            count = 0;
-                            boardList.Clear();
-                            System.Threading.Thread.Sleep(1000);
-                            sendSignal("ON0", "10.11.12.24", 51236);
-                            sendSignal("ON1", "10.11.12.24", 51236);
-                            sendSignal("ON2", "10.11.12.24", 51236);
-                        }
-                        Console.WriteLine("done 3333");
-                    }
                 }
-
-            }
-            catch (Exception ex)
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error: ");
+                    Console.WriteLine(ex.ToString());
+                }
+                finally
+                {
+                    client.Close();
+                }
+            }catch(IOException ex)
             {
-                Console.WriteLine("Error: ");
-                Console.WriteLine(ex.ToString());
-            }
-            finally
-            {
-                client.Close();
+                // An error occurred while receiving or sending data
+                Console.WriteLine($"Error 1: {ex.Message}");
             }
         }
 
@@ -125,10 +133,10 @@ namespace TCP_Server
                 {
                     t++;
                     Console.WriteLine("No connection could be made to " + ip);
+                    //Console.WriteLine(ex.ToString());
                     continue;
-                    Console.WriteLine(ex.ToString());
                 }
-            } while (t <= 4);
+            } while (t < 4); // resend the signal if fail, maximum resend 4 times
         }
 
         static string getResponse(string req)
