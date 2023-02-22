@@ -14,6 +14,7 @@ namespace TCP_Server
     {
         static int count = 0;
         static List<string> boardList = new List<string>();
+        static object myLock = new object();
         static void Main(string[] args)
         {
             TcpListener server = new TcpListener(IPAddress.Parse("10.11.12.11"), 51236);
@@ -80,18 +81,27 @@ namespace TCP_Server
                             Console.WriteLine("Received: " + request);
                             Console.WriteLine("Sent: " + Encoding.ASCII.GetString(response) + " to " + getIP(request));
 
-                            if (count == 3)
+                            // Synchronize access to the critical section of code
+                            // Ensures that the critical section of code is executed by only one thread at a time
+                            lock (myLock)
                             {
-                                System.Threading.Thread.Sleep(800);
-                                Console.WriteLine("do 3333");
-                                count = 0;
-                                boardList.Clear();
-                                System.Threading.Thread.Sleep(1000);
-                                sendSignal("ON0", "10.11.12.24", 51236);  
-                                sendSignal("ON1", "10.11.12.24", 51236);
-                                sendSignal("ON2", "10.11.12.24", 51236);
+                                Console.WriteLine("\nGo in critical sec.");
+
+                                if (count == 3)
+                                {
+                                    Console.WriteLine("do 3333");
+                                    count = 0;
+                                    boardList.Clear();
+                                    System.Threading.Thread.Sleep(20000);
+                                    sendSignal("ON0", "10.11.12.24", 51236);
+                                    sendSignal("ON1", "10.11.12.24", 51236);
+                                    sendSignal("ON2", "10.11.12.24", 51236);
+                                    Console.WriteLine("done 3333");
+                                }
+
+                                Console.WriteLine("Go out critical sec.\n");
+
                             }
-                            Console.WriteLine("done 3333");
                         }
                     }
 
@@ -105,7 +115,8 @@ namespace TCP_Server
                 {
                     client.Close();
                 }
-            }catch(IOException ex)
+            }
+            catch (IOException ex)
             {
                 // An error occurred while receiving or sending data
                 Console.WriteLine($"Error 1: {ex.Message}");
