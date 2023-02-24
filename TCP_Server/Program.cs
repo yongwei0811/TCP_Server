@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace TCP_Server
 {
@@ -15,6 +16,7 @@ namespace TCP_Server
         static int count = 0;
         static List<string> boardList = new List<string>();
         static object myLock = new object();
+
         static void Main(string[] args)
         {
             TcpListener server = new TcpListener(IPAddress.Parse("10.11.12.11"), 51236);
@@ -22,16 +24,32 @@ namespace TCP_Server
 
             Console.WriteLine("Waiting for a client to connect...");
 
-            sendSignal("ON0", "10.11.12.24", 51236);
-            sendSignal("ON1", "10.11.12.24", 51236);
-            sendSignal("ON2", "10.11.12.24", 51236);
-
             while (true)
             {
-                TcpClient client = server.AcceptTcpClient();
-                Console.WriteLine("Client connected.");
-                Thread t = new Thread(HandleClient);
-                t.Start(client);
+                Console.WriteLine();
+                sendSignal("ON0", "10.11.12.24", 51236);
+
+
+                for (int i = 0; i < 3; i++)
+                {
+                    TcpClient client = server.AcceptTcpClient();
+                    Console.WriteLine("\nClient connected.");
+                    HandleClient(client);
+
+                    int num = i + 1;
+                    if (i < 2)
+                        sendSignal("ON" + num, "10.11.12.24", 51236);
+
+                }
+                if (count == 3)
+                {
+                    Console.WriteLine("Reset...");
+                    count = 0;
+                    boardList.Clear();
+                    System.Threading.Thread.Sleep(20000);
+
+                    Console.WriteLine("Reset done...");
+                }
             }
         }
 
@@ -52,7 +70,7 @@ namespace TCP_Server
                             byte[] buff = new byte[1];
                             if (client.Client.Receive(buff, SocketFlags.Peek) == 0)
                             {
-                                Console.WriteLine("Client disconnected.");
+                                Console.WriteLine("Client disconnected.\n");
                                 break;
                             }
                         }
@@ -80,28 +98,6 @@ namespace TCP_Server
 
                             Console.WriteLine("Received: " + request);
                             Console.WriteLine("Sent: " + Encoding.ASCII.GetString(response) + " to " + getIP(request));
-
-                            // Synchronize access to the critical section of code
-                            // Ensures that the critical section of code is executed by only one thread at a time
-                            lock (myLock)
-                            {
-                                Console.WriteLine("\nGo in critical sec.");
-
-                                if (count == 3)
-                                {
-                                    Console.WriteLine("do 3333");
-                                    count = 0;
-                                    boardList.Clear();
-                                    System.Threading.Thread.Sleep(20000);
-                                    sendSignal("ON0", "10.11.12.24", 51236);
-                                    sendSignal("ON1", "10.11.12.24", 51236);
-                                    sendSignal("ON2", "10.11.12.24", 51236);
-                                    Console.WriteLine("done 3333");
-                                }
-
-                                Console.WriteLine("Go out critical sec.\n");
-
-                            }
                         }
                     }
 
